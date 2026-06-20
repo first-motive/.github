@@ -1,6 +1,6 @@
-# First Motive
-
-**Ground-truth infrastructure for Physical AI.**
+<p align="center">
+  <img src="assets/firstmotive-wordmark.png" alt="First Motive — Ground-truth infrastructure for Physical AI" width="640">
+</p>
 
 The data engine that turns off-the-shelf robots into deployment-grade workers.
 Open schemas. Public benchmarks. Built from South Africa.
@@ -15,15 +15,11 @@ does as structured episodes, train policies on that data, then deploy the
 policies back to the robot. Each layer is its own repository, assembled into one
 ROS2 (Humble) workspace.
 
-```mermaid
-flowchart LR
-  robot["fm-robot<br/>real robot"] --> teleop["fm-teleop<br/>teleop + autonomy"]
-  sim["fm-sim<br/>simulation"] --> teleop
-  teleop --> data["episode<br/>recording"]
-  data --> learning["data<br/>pipeline"]
-  learning --> policy["train +<br/>serve"]
-  policy -->|deploy| robot
-```
+<p align="center">
+  <img src="assets/architecture.svg" alt="Data-engine loop: robot and sim feed teleop, episodes are recorded, the data pipeline trains policies, policies deploy back to the robot" width="900">
+</p>
+
+<sub>Diagram source: [`diagrams/architecture.d2`](diagrams/architecture.d2) — re-render with [`diagrams/render.sh`](diagrams/render.sh).</sub>
 
 `fm-app` orchestrates bringup across these layers; `fm-ros2` is the workspace
 that assembles them all.

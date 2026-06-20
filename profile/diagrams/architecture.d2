@@ -1,0 +1,21 @@
+direction: right
+
+classes: {
+  repo: { style.fill: "#B6A5C6"; style.font-color: "#342E3B"; style.stroke: "#3B3443"; style.stroke-width: 2 }
+  stage: { style.fill: "#E7DDC8"; style.font-color: "#342E3B"; style.stroke: "#3B3443"; style.stroke-width: 2 }
+  edge: { style.stroke: "#3B3443"; style.stroke-width: 2 }
+}
+
+robot: "fm-robot · real robot" { class: repo }
+sim: "fm-sim · simulation" { class: repo }
+teleop: "fm-teleop · teleop + autonomy" { class: repo }
+record: "episode recording" { class: stage }
+pipeline: "data pipeline" { class: stage }
+train: "train + serve" { class: stage }
+
+robot -> teleop: { class: edge }
+sim -> teleop: { class: edge }
+teleop -> record: { class: edge }
+record -> pipeline: { class: edge }
+pipeline -> train: { class: edge }
+train -> robot: deploy { class: edge }
