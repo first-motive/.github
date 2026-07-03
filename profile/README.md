@@ -13,7 +13,7 @@ it — and build the infrastructure that makes it reusable.
 Our stack runs a single loop: drive a robot (real or simulated), record what it
 does as structured episodes, train policies on that data, then deploy the
 policies back to the robot. Each layer is its own repository, assembled into one
-ROS2 (Humble) workspace.
+ROS2 workspace.
 
 <p align="center">
   <img src="assets/architecture.svg" alt="Data-engine loop: robot and sim feed teleop, episodes are recorded, the data pipeline trains policies, policies deploy back to the robot" width="900">
