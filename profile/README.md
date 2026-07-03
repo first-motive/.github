@@ -28,18 +28,18 @@ that assembles them all.
 
 ### Robot Stack
 
-| Repo | What it does |
-|------|--------------|
-| [`fm-robot`](https://github.com/first-motive/fm-robot) | Robot layer: URDF description, controllers, sensor drivers |
-| [`fm-teleop`](https://github.com/first-motive/fm-teleop) | Teleop layer: every teleop input behind one command contract |
-| [`fm-sim`](https://github.com/first-motive/fm-sim) | Simulation layer: headless dev loop, backend hosts, MJCF model registry |
-| [`fm-app`](https://github.com/first-motive/fm-app) | Application layer: bringup launch orchestration + operator TUI |
+| Repo | What it does | Name | Username | Email |
+|------|--------------|------|----------|-------|
+| [`fm-robot`](https://github.com/first-motive/fm-robot) | Robot layer: URDF description, controllers, sensor drivers | Nishalan Govender | [@ubunish](https://github.com/ubunish) | [nish@ubundi.co.za](mailto:nish@ubundi.co.za) |
+| [`fm-teleop`](https://github.com/first-motive/fm-teleop) | Teleop layer: every teleop input behind one command contract | Wynand Neethling<br>Retief Louw | [@WynandNeethling](https://github.com/WynandNeethling)<br>[@RetiefLouw](https://github.com/RetiefLouw) | [wynand@ubundi.co.za](mailto:wynand@ubundi.co.za)<br>[retief@ubundi.co.za](mailto:retief@ubundi.co.za) |
+| [`fm-sim`](https://github.com/first-motive/fm-sim) | Simulation layer: headless dev loop, backend hosts, MJCF model registry | Nishalan Govender | [@ubunish](https://github.com/ubunish) | [nish@ubundi.co.za](mailto:nish@ubundi.co.za) |
+| [`fm-app`](https://github.com/first-motive/fm-app) | Application layer: bringup launch orchestration + operator TUI | Nishalan Govender<br>Matthew Schramm | [@ubunish](https://github.com/ubunish)<br>[@Schramm2](https://github.com/Schramm2) | [nish@ubundi.co.za](mailto:nish@ubundi.co.za)<br>[matthew@ubundi.co.za](mailto:matthew@ubundi.co.za) |
 
 ### Workspace
 
-| Repo | What it does |
-|------|--------------|
-| [`fm-ros2`](https://github.com/first-motive/fm-ros2) | Orchestrator: assembles the per-package repos into one colcon workspace via vcs, plus shared tooling (Docker, dev container, CI) and full-system docs |
+| Repo | What it does | Name | Username | Email |
+|------|--------------|------|----------|-------|
+| [`fm-ros2`](https://github.com/first-motive/fm-ros2) | Orchestrator: assembles the per-package repos into one colcon workspace via vcs, plus shared tooling (Docker, dev container, CI) and full-system docs | Nishalan Govender | [@ubunish](https://github.com/ubunish) | [nish@ubundi.co.za](mailto:nish@ubundi.co.za) |
 
 ## Get In Touch
 
