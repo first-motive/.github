@@ -24,6 +24,28 @@ ROS2 workspace.
 `fm-app` orchestrates bringup across these layers; `fm-ros2` is the workspace
 that assembles them all.
 
+## Get Started
+
+`fm-ros2` is the single entryway. One command clones the workspace, assembles
+every layer from its manifests, and sets up the viewer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.sh | bash
+cd fm_ros2 && ./run.sh
+```
+
+Prefer to read before you run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.sh -o install.sh
+less install.sh && bash install.sh
+```
+
+Install and run are split on purpose: install is non-interactive and safe to
+pipe, while `run.sh` drives the interactive TUI from your terminal. The package
+repos are private, so the import step assumes org access and fails with a clear
+message without it.
+
 ## The Stack
 
 ### Robot Stack
