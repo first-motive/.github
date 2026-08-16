@@ -47,9 +47,19 @@ on:
         description: Run colcon test after the build.
         type: boolean
         default: true
+      rosdep-strict:
+        description: >-
+          Fail the job when rosdep cannot resolve a dependency. Set false in a repo
+          whose manifest pulls siblings whose own deps are not resolvable here —
+          the build step is still the gate.
+        type: boolean
+        default: true
       runs-on:
+        description: >-
+          Runner, as JSON: a string for a hosted label ('"ubuntu-latest"'), or an
+          array for a self-hosted label set ('["self-hosted","Linux","ARM64","fm-ci"]').
         type: string
-        default: ubuntu-latest
+        default: '"ubuntu-latest"'
       timeout-minutes:
         type: number
         default: 40
@@ -60,7 +70,7 @@ permissions:
 jobs:
   build-test:
     name: build + test (${{ inputs.distro }})
-    runs-on: ${{ inputs.runs-on }}
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     container: ros:${{ inputs.distro }}
     defaults:
@@ -104,7 +114,12 @@ jobs:
           rosdep update
           paths="${{ inputs.checkout-path }}"
           [ -d external ] && paths="$paths external"
-          rosdep install --from-paths $paths --ignore-src -y -r
+          if [ "${{ inputs.rosdep-strict }}" = "true" ]; then
+            rosdep install --from-paths $paths --ignore-src -y -r
+          else
+            rosdep install --from-paths $paths --ignore-src -y -r || \
+              echo "rosdep left dependencies unresolved — the build step decides"
+          fi
 
       - name: colcon build
         env:
@@ -125,7 +140,11 @@ jobs:
           set -euo pipefail
           source "/opt/ros/$DISTRO/setup.bash"
           source install/setup.bash
-          packages="$(colcon list --names-only | grep "^$PREFIX" || true)"
-          [ -n "$packages" ] || { echo "FAIL: no package matches prefix '$PREFIX'"; exit 1; }
-          colcon test --packages-select $packages
+          if [ -n "$PREFIX" ]; then
+            packages="$(colcon list --names-only | grep "^$PREFIX" || true)"
+            [ -n "$packages" ] || { echo "FAIL: no package matches prefix '$PREFIX'"; exit 1; }
+            colcon test --packages-select $packages
+          else
+            colcon test
+          fi
           colcon test-result --verbose
