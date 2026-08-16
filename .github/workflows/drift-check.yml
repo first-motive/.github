@@ -1,0 +1,43 @@
+name: Render drift check
+
+# Some files in a First Motive repo are rendered from a single upstream source
+# shared across repos — the d2 palette, the diagram renderer, the org invariant
+# block, external pins. Each rendered file carries a stamp: a hash of its own
+# body, recorded alongside in .fm/render.lock.json. This job fails when one of
+# them was edited in place, which is the moment drift starts.
+#
+# The check is stdlib-only Python shipped into the repo as .fm/render-check.py,
+# so it needs no network, no credentials, and no access to the upstream source.
+#
+#   jobs:
+#     drift:
+#       uses: first-motive/.github/.github/workflows/drift-check.yml@main
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        type: string
+        default: ubuntu-latest
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    name: rendered artifacts match their stamps
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # A repo with no rendered artifacts is not a failure — it is a repo the
+      # plane does not reach yet. Only a repo that holds a lock file is graded.
+      - name: Check rendered artifacts
+        run: |
+          set -euo pipefail
+          if [ ! -f .fm/render.lock.json ]; then
+            echo "no .fm/render.lock.json — this repo consumes no rendered artifacts"
+            exit 0
+          fi
+          python3 .fm/render-check.py
