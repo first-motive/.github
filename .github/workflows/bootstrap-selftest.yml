@@ -34,9 +34,19 @@ on:
         description: The line a self-testing script prints when it has resolved.
         type: string
         default: selftest ok
-      runs-on:
+      script-env:
+        description: >-
+          Space-separated KEY=VALUE pairs exported before the scripts run. A front
+          door that fetches a shared library from a release tag uses this to fetch
+          from the commit under test instead: FM_TAG=<sha>.
         type: string
-        default: ubuntu-latest
+        default: ""
+      runs-on:
+        description: >-
+          Runner, as JSON: a string for a hosted label ('"ubuntu-latest"'), or an
+          array for a self-hosted label set ('["self-hosted","Linux","ARM64","fm-ci"]').
+        type: string
+        default: '"ubuntu-latest"'
 
 permissions:
   contents: read
@@ -44,7 +54,7 @@ permissions:
 jobs:
   selftest:
     name: bootstrap self-test (curl|bash FM_SELFTEST)
-    runs-on: ${{ inputs.runs-on }}
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -56,10 +66,12 @@ jobs:
         env:
           SCRIPTS: ${{ inputs.scripts }}
           MARKER: ${{ inputs.marker }}
+          SCRIPT_ENV: ${{ inputs.script-env }}
         run: |
           set -euo pipefail
           repo="$PWD"
           cd "$(mktemp -d)"
+          for pair in $SCRIPT_ENV; do export "${pair?}"; done
           for s in $SCRIPTS; do
             echo "== $s =="
             out="$(cat "$repo/$s" | FM_SELFTEST=1 bash 2>&1)" \

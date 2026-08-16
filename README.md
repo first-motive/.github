@@ -50,6 +50,9 @@ jobs:
     uses: first-motive/.github/.github/workflows/drift-check.yml@main
 ```
 
+`runs-on` is JSON, so a job can land on the self-hosted fleet:
+`runs-on: '["self-hosted","Linux","ARM64","fm-ci"]'`.
+
 Each workflow's inputs are documented in its own header. Read that file before
 adding an input — a repo-specific need usually belongs in the calling repo, not
 in a new knob here.
