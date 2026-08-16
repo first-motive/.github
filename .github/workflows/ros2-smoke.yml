@@ -79,6 +79,12 @@ on:
         description: Seconds to wait for a single message on each expected topic.
         type: number
         default: 15
+      scripts-ref:
+        description: >-
+          Ref of first-motive/.github to take scripts/ros2-smoke-assert.sh from.
+          Pin it in a repo that wants the assertions to move only when it says so.
+        type: string
+        default: main
       runs-on:
         description: Runner, as JSON — a string label or an array of labels.
         type: string
@@ -102,21 +108,15 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # A caller that asserts nothing gets a red job, not a green one. Without this
-      # the workflow would silently accept the exact contract it exists to remove.
-      - name: Assertions declared
-        env:
-          NODES: ${{ inputs.expect-nodes }}
-          TOPICS: ${{ inputs.expect-topics }}
-          CONTROLLERS: ${{ inputs.expect-controllers }}
-        run: |
-          set -euo pipefail
-          if [ -z "${NODES}${TOPICS}${CONTROLLERS}" ]; then
-            echo "FAIL: no expect-nodes, expect-topics, or expect-controllers given."
-            echo "A smoke that asserts nothing cannot fail, and must not merge."
-            exit 1
-          fi
-          echo "assertions declared"
+      # The assertions live in scripts/ros2-smoke-assert.sh so a repo that already
+      # built its workspace in another job can run the same checks from a plain step
+      # instead of paying for a second build. This workflow is one of its two
+      # consumers, not its owner.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: first-motive/.github
+          ref: ${{ inputs.scripts-ref }}
+          path: .fm-ci
 
       - name: Import + mark externals
         if: inputs.repos-file != ''
@@ -189,107 +189,14 @@ jobs:
         env:
           DISTRO: ${{ inputs.distro }}
           LAUNCH: ${{ inputs.launch }}
-          NODES: ${{ inputs.expect-nodes }}
-          TOPICS: ${{ inputs.expect-topics }}
-          CONTROLLERS: ${{ inputs.expect-controllers }}
+          EXPECT_NODES: ${{ inputs.expect-nodes }}
+          EXPECT_TOPICS: ${{ inputs.expect-topics }}
+          EXPECT_CONTROLLERS: ${{ inputs.expect-controllers }}
           READY_TIMEOUT: ${{ inputs.ready-timeout }}
           TOPIC_TIMEOUT: ${{ inputs.topic-timeout }}
         run: |
-          # Not -e: every assertion runs, and failures aggregate at the end, so one
-          # red check still reports the state of the others.
-          set -uo pipefail
+          # No -u: ROS's setup.bash reads unset variables by design.
+          set -eo pipefail
           source "/opt/ros/$DISTRO/setup.bash"
           source install/setup.bash
-
-          fails=0
-          pass() { echo "PASS: $1"; }
-          fail() { echo "FAIL: $1"; fails=$((fails + 1)); }
-
-          # `ros2 control` comes from ros2controlcli, which the base image does not
-          # ship. Without this guard a missing CLI reads as "controller not active
-          # yet" and the job fails with a misleading message.
-          if [ -n "$CONTROLLERS" ] && ! ros2 control list_controllers --help >/dev/null 2>&1; then
-            echo "FAIL: expect-controllers given but ros2controlcli is not installed."
-            echo "Add ros-${DISTRO}-ros2controlcli to apt-packages."
-            exit 1
-          fi
-
-          echo "==> launching: $LAUNCH"
-          bash -c "$LAUNCH" >/tmp/smoke.log 2>&1 &
-          launch_pid=$!
-
-          # Nodes and controllers are polled together: both are "has the stack
-          # reached this state yet", and one deadline covers the whole bring-up.
-          deadline=$((SECONDS + READY_TIMEOUT))
-          nodes_left="$NODES"
-          controllers_left="$CONTROLLERS"
-          while [ $SECONDS -lt $deadline ]; do
-            # A launch that died takes its assertions with it — stop waiting on a
-            # stack that is no longer coming up.
-            if ! kill -0 "$launch_pid" 2>/dev/null; then
-              echo "launch exited early (see log below)"
-              break
-            fi
-            if [ -n "$nodes_left" ]; then
-              node_list="$(ros2 node list 2>/dev/null)"
-              still=""
-              for n in $nodes_left; do
-                grep -qxF "$n" <<<"$node_list" || still="$still $n"
-              done
-              nodes_left="${still# }"
-            fi
-            if [ -n "$controllers_left" ]; then
-              ctrl_list="$(ros2 control list_controllers 2>/dev/null)"
-              still=""
-              for c in $controllers_left; do
-                # list_controllers prints `name[type/Class] state`. Anchor on the name
-                # followed by a non-identifier character, and require `active` as a
-                # whole word — an unanchored `.*active` also matches `inactive`.
-                grep -qE "^${c}[^a-zA-Z0-9_].*[[:space:]]active([[:space:]]|$)" \
-                  <<<"$ctrl_list" || still="$still $c"
-              done
-              controllers_left="${still# }"
-            fi
-            [ -z "$nodes_left$controllers_left" ] && break
-            sleep 2
-          done
-
-          for n in $NODES; do
-            case " $nodes_left " in
-              *" $n "*) fail "node $n never appeared in ros2 node list" ;;
-              *) pass "node $n up" ;;
-            esac
-          done
-          for c in $CONTROLLERS; do
-            case " $controllers_left " in
-              *" $c "*) fail "controller $c never reached active" ;;
-              *) pass "controller $c active" ;;
-            esac
-          done
-
-          # The assertion a silent stack cannot pass: a real message, on the wire,
-          # inside the window.
-          for t in $TOPICS; do
-            if timeout "$TOPIC_TIMEOUT" ros2 topic echo --once "$t" >/tmp/topic.out 2>/dev/null &&
-               [ -s /tmp/topic.out ]; then
-              pass "topic $t published within ${TOPIC_TIMEOUT}s"
-            else
-              fail "topic $t published nothing within ${TOPIC_TIMEOUT}s"
-            fi
-          done
-
-          # Bounded teardown: a plain `wait` blocks forever when a launch child
-          # ignores SIGTERM, which hangs the job until the runner's own timeout.
-          kill "$launch_pid" 2>/dev/null || true
-          for _ in $(seq 1 15); do
-            kill -0 "$launch_pid" 2>/dev/null || break
-            sleep 1
-          done
-          kill -9 "$launch_pid" 2>/dev/null || true
-
-          echo "==> smoke: ${fails} failure(s)"
-          if [ "$fails" -ne 0 ]; then
-            echo "==> launch log (last 60 lines)"
-            tail -60 /tmp/smoke.log || true
-          fi
-          [ "$fails" -eq 0 ]
+          bash .fm-ci/scripts/ros2-smoke-assert.sh
