@@ -40,6 +40,13 @@ on:
         description: Space-separated apt packages to install before rosdep.
         type: string
         default: ""
+      pip-packages:
+        description: >-
+          Space-separated Python packages a launched node imports that rosdep cannot
+          resolve — a native wheel like mujoco, a TUI framework. Installed with uv
+          into the container's system Python, which is the interpreter ROS uses.
+        type: string
+        default: ""
       rosdep-strict:
         description: Fail the job when rosdep cannot resolve a dependency.
         type: boolean
@@ -131,6 +138,20 @@ jobs:
             fi
           done
           echo "externals imported"
+
+      - uses: astral-sh/setup-uv@v7
+        if: inputs.pip-packages != ''
+
+      # colcon resolves neither install_requires nor a lazily imported native wheel,
+      # so a node can build clean and then die on its first import. That failure is
+      # exactly what the state asserts below are meant to surface, not to trip over.
+      - name: Install Python deps
+        if: inputs.pip-packages != ''
+        env:
+          PIP_PACKAGES: ${{ inputs.pip-packages }}
+        run: |
+          set -eo pipefail
+          uv pip install --system $PIP_PACKAGES
 
       - name: Install ROS deps
         env:
