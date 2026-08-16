@@ -1,0 +1,106 @@
+name: Bootstrap self-test
+
+# Every First Motive repo with a curl|bash front door proves the piped path still
+# works. FM_SELFTEST makes a script stop after it loads its deps and resolves its
+# options — before any clone, container, or build — so this runs in seconds on a
+# bare runner and still catches the breaks that would otherwise surface mid-provision
+# on a real rig.
+#
+#   jobs:
+#     selftest:
+#       uses: first-motive/.github/.github/workflows/bootstrap-selftest.yml@main
+#       with:
+#         scripts: install.sh run.sh
+#         parse-globs: scripts/install/*.sh scripts/run/*.sh
+
+on:
+  workflow_call:
+    inputs:
+      scripts:
+        description: Space-separated curl|bash entry points to pipe through bash.
+        type: string
+        default: install.sh run.sh
+      in-tree-scripts:
+        description: >-
+          Space-separated scripts run in-tree (not piped), each with its own
+          arguments quoted as one word, e.g. "scripts/update.sh" "install.sh uninstall --purge".
+        type: string
+        default: ""
+      parse-globs:
+        description: Space-separated globs of shell scripts to syntax-check with bash -n.
+        type: string
+        default: ""
+      marker:
+        description: The line a self-testing script prints when it has resolved.
+        type: string
+        default: selftest ok
+      runs-on:
+        type: string
+        default: ubuntu-latest
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    name: bootstrap self-test (curl|bash FM_SELFTEST)
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Run each entry point from an empty directory so it takes its network
+      # branch — the path a real user hits when they pipe it from curl.
+      - name: Entry points survive the piped curl path
+        if: inputs.scripts != ''
+        env:
+          SCRIPTS: ${{ inputs.scripts }}
+          MARKER: ${{ inputs.marker }}
+        run: |
+          set -euo pipefail
+          repo="$PWD"
+          cd "$(mktemp -d)"
+          for s in $SCRIPTS; do
+            echo "== $s =="
+            out="$(cat "$repo/$s" | FM_SELFTEST=1 bash 2>&1)" \
+              || { echo "$out"; echo "FAIL: $s exited non-zero under curl|bash"; exit 1; }
+            echo "$out"
+            echo "$out" | grep -q "$MARKER" \
+              || { echo "FAIL: $s did not reach '$MARKER'"; exit 1; }
+          done
+          echo "bootstrap self-test OK"
+
+      # In-tree tools (an updater, an uninstall path) are never curl-piped, but a
+      # parse or flag-routing break in one is just as costly — smoke them under the
+      # same marker before a real convergence or teardown runs.
+      - name: In-tree scripts survive FM_SELFTEST
+        if: inputs.in-tree-scripts != ''
+        env:
+          IN_TREE: ${{ inputs.in-tree-scripts }}
+          MARKER: ${{ inputs.marker }}
+        run: |
+          set -euo pipefail
+          eval "set -- $IN_TREE"
+          for invocation in "$@"; do
+            echo "== $invocation =="
+            FM_SELFTEST=1 bash $invocation | tee /dev/stderr | grep -q "$MARKER" \
+              || { echo "FAIL: $invocation did not reach '$MARKER'"; exit 1; }
+          done
+          echo "in-tree self-test OK"
+
+      # Install scripts are Linux-only and mostly unreachable in CI, so a syntax
+      # error would otherwise surface first on a real host mid-provision.
+      - name: Shell scripts parse
+        if: inputs.parse-globs != ''
+        env:
+          GLOBS: ${{ inputs.parse-globs }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          count=0
+          for s in $GLOBS; do
+            bash -n "$s" || { echo "FAIL: $s has a syntax error"; exit 1; }
+            count=$((count + 1))
+          done
+          [ "$count" -gt 0 ] || { echo "FAIL: parse-globs matched no files"; exit 1; }
+          echo "$count script(s) parse OK"

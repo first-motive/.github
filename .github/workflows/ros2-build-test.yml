@@ -1,0 +1,131 @@
+name: ROS2 build + test
+
+# The colcon block every package repo runs: import the manifest, ignore the
+# file-vendored externals, resolve rosdeps, build, then test only our own
+# packages. The vendored externals carry upstream test suites that are not ours
+# to keep green, so `packages-select` is filtered by prefix.
+#
+#   jobs:
+#     build-test:
+#       uses: first-motive/.github/.github/workflows/ros2-build-test.yml@main
+#       with:
+#         repos-file: fm-robot.repos
+#         build-externals: openarm_description unitree_ros2
+#         apt-packages: ros-humble-rosidl-generator-dds-idl ros-humble-cyclonedds
+
+on:
+  workflow_call:
+    inputs:
+      distro:
+        description: ROS2 distribution. Humble is the fleet's LTS target.
+        type: string
+        default: humble
+      checkout-path:
+        description: Where to check this repo out, relative to the workspace root.
+        type: string
+        default: src/repo
+      repos-file:
+        description: vcstool manifest to import into external/. Empty skips the import.
+        type: string
+        default: ""
+      build-externals:
+        description: >-
+          Space-separated external packages to BUILD. Everything else the manifest
+          imports is COLCON_IGNORE'd — file-vendored sources and reference-only
+          checkouts are not ament packages and must not enter the build.
+        type: string
+        default: ""
+      apt-packages:
+        description: Space-separated apt packages to install before rosdep.
+        type: string
+        default: ""
+      package-prefix:
+        description: Only packages with this prefix are tested.
+        type: string
+        default: fm_
+      test:
+        description: Run colcon test after the build.
+        type: boolean
+        default: true
+      runs-on:
+        type: string
+        default: ubuntu-latest
+      timeout-minutes:
+        type: number
+        default: 40
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: build + test (${{ inputs.distro }})
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    container: ros:${{ inputs.distro }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: ${{ inputs.checkout-path }}
+
+      - name: Import + mark externals
+        if: inputs.repos-file != ''
+        env:
+          REPOS_FILE: ${{ inputs.checkout-path }}/${{ inputs.repos-file }}
+          BUILD_EXTERNALS: ${{ inputs.build-externals }}
+        run: |
+          set -euo pipefail
+          apt-get update && apt-get install -y python3-vcstool
+          vcs import < "$REPOS_FILE"
+          # Ignore everything the manifest brought in, then un-ignore the ament
+          # packages this repo genuinely builds against.
+          for d in external/*/; do touch "${d}COLCON_IGNORE"; done
+          for name in $BUILD_EXTERNALS; do
+            rm -f "external/$name/COLCON_IGNORE"
+            # A vendored workspace often nests demo sources that are not ours to
+            # build; keep the nested example tree ignored where one exists.
+            [ -d "external/$name/example/src" ] && touch "external/$name/example/src/COLCON_IGNORE"
+          done
+          echo "externals imported"
+
+      - name: Install ROS deps
+        env:
+          APT_PACKAGES: ${{ inputs.apt-packages }}
+          DISTRO: ${{ inputs.distro }}
+        run: |
+          set -euo pipefail
+          source "/opt/ros/$DISTRO/setup.bash"
+          if [ -n "$APT_PACKAGES" ]; then
+            apt-get update && apt-get install -y $APT_PACKAGES
+          fi
+          rosdep update
+          paths="${{ inputs.checkout-path }}"
+          [ -d external ] && paths="$paths external"
+          rosdep install --from-paths $paths --ignore-src -y -r
+
+      - name: colcon build
+        env:
+          DISTRO: ${{ inputs.distro }}
+        run: |
+          set -euo pipefail
+          source "/opt/ros/$DISTRO/setup.bash"
+          colcon build --symlink-install
+
+      # colcon test exits 0 even when a test fails, so test-result is what turns a
+      # failure into a red job.
+      - name: colcon test
+        if: inputs.test
+        env:
+          DISTRO: ${{ inputs.distro }}
+          PREFIX: ${{ inputs.package-prefix }}
+        run: |
+          set -euo pipefail
+          source "/opt/ros/$DISTRO/setup.bash"
+          source install/setup.bash
+          packages="$(colcon list --names-only | grep "^$PREFIX" || true)"
+          [ -n "$packages" ] || { echo "FAIL: no package matches prefix '$PREFIX'"; exit 1; }
+          colcon test --packages-select $packages
+          colcon test-result --verbose
