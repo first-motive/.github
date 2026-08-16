@@ -90,6 +90,9 @@ jobs:
           set -euo pipefail
           apt-get update && apt-get install -y python3-vcstool
           vcs import < "$REPOS_FILE"
+          # nullglob: a manifest that imports no external/ (only siblings) must not
+          # leave the literal glob behind for touch to choke on under set -e.
+          shopt -s nullglob
           # Ignore everything the manifest brought in, then un-ignore the ament
           # packages this repo genuinely builds against.
           for d in external/*/; do touch "${d}COLCON_IGNORE"; done
@@ -97,7 +100,9 @@ jobs:
             rm -f "external/$name/COLCON_IGNORE"
             # A vendored workspace often nests demo sources that are not ours to
             # build; keep the nested example tree ignored where one exists.
-            [ -d "external/$name/example/src" ] && touch "external/$name/example/src/COLCON_IGNORE"
+            if [ -d "external/$name/example/src" ]; then
+              touch "external/$name/example/src/COLCON_IGNORE"
+            fi
           done
           echo "externals imported"
 
