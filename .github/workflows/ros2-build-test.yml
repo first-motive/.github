@@ -111,7 +111,9 @@ jobs:
           APT_PACKAGES: ${{ inputs.apt-packages }}
           DISTRO: ${{ inputs.distro }}
         run: |
-          set -euo pipefail
+          # No -u: ROS's setup.bash reads unset variables by design, so `set -u`
+          # aborts the step on AMENT_TRACE_SETUP_FILES before anything runs.
+          set -eo pipefail
           source "/opt/ros/$DISTRO/setup.bash"
           if [ -n "$APT_PACKAGES" ]; then
             apt-get update && apt-get install -y $APT_PACKAGES
@@ -130,7 +132,9 @@ jobs:
         env:
           DISTRO: ${{ inputs.distro }}
         run: |
-          set -euo pipefail
+          # No -u: ROS's setup.bash reads unset variables by design, so `set -u`
+          # aborts the step on AMENT_TRACE_SETUP_FILES before anything runs.
+          set -eo pipefail
           source "/opt/ros/$DISTRO/setup.bash"
           colcon build --symlink-install
 
@@ -142,7 +146,9 @@ jobs:
           DISTRO: ${{ inputs.distro }}
           PREFIX: ${{ inputs.package-prefix }}
         run: |
-          set -euo pipefail
+          # No -u: ROS's setup.bash reads unset variables by design, so `set -u`
+          # aborts the step on AMENT_TRACE_SETUP_FILES before anything runs.
+          set -eo pipefail
           source "/opt/ros/$DISTRO/setup.bash"
           source install/setup.bash
           if [ -n "$PREFIX" ]; then
