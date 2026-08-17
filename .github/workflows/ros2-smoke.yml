@@ -1,0 +1,202 @@
+name: ROS2 smoke
+
+# Bring a stack up headless and assert it reached a working state. This replaces
+# the `timeout N; exit 124 == pass` pattern, which is green for a launch that came
+# up and published nothing — it cannot distinguish a running stack from a hung one.
+#
+# A caller must assert something: with expect-nodes, expect-topics, and
+# expect-controllers all empty the job fails immediately, because a smoke that
+# cannot fail must not merge.
+#
+#   jobs:
+#     smoke:
+#       uses: first-motive/.github/.github/workflows/ros2-smoke.yml@main
+#       with:
+#         repos-file: fm-robot.repos
+#         build-externals: openarm_description unitree_ros2
+#         launch: ros2 launch fm_bringup sim.launch.py robot:=g1_d sim_backend:=mock
+#         expect-nodes: /controller_manager /robot_state_publisher
+#         expect-controllers: g1_right_arm_controller
+#         expect-topics: /joint_states
+
+on:
+  workflow_call:
+    inputs:
+      distro:
+        description: ROS2 distribution. Humble is the fleet's LTS target.
+        type: string
+        default: humble
+      repos-file:
+        description: vcstool manifest to import. Empty skips the import.
+        type: string
+        default: ""
+      build-externals:
+        description: >-
+          Space-separated external packages to BUILD. Everything else the manifest
+          imports is COLCON_IGNORE'd.
+        type: string
+        default: ""
+      apt-packages:
+        description: Space-separated apt packages to install before rosdep.
+        type: string
+        default: ""
+      pip-packages:
+        description: >-
+          Space-separated Python packages a launched node imports that rosdep cannot
+          resolve — a native wheel like mujoco, a TUI framework. Installed with uv
+          into the container's system Python, which is the interpreter ROS uses.
+        type: string
+        default: ""
+      rosdep-strict:
+        description: Fail the job when rosdep cannot resolve a dependency.
+        type: boolean
+        default: true
+      launch:
+        description: >-
+          Command that brings the stack up and keeps running. Runs with the ROS
+          distro and the built overlay sourced, backgrounded, output to a log.
+        type: string
+        required: true
+      expect-nodes:
+        description: Space-separated node names that must appear in `ros2 node list`.
+        type: string
+        default: ""
+      expect-topics:
+        description: >-
+          Space-separated topics that must deliver at least one message inside the
+          window. This is the check that a silent loop cannot pass.
+        type: string
+        default: ""
+      expect-controllers:
+        description: Space-separated controllers that must reach state `active`.
+        type: string
+        default: ""
+      ready-timeout:
+        description: Seconds to wait for every assertion to come true.
+        type: number
+        default: 90
+      topic-timeout:
+        description: Seconds to wait for a single message on each expected topic.
+        type: number
+        default: 15
+      scripts-ref:
+        description: >-
+          Ref of first-motive/.github to take scripts/ros2-smoke-assert.sh from.
+          Pin it in a repo that wants the assertions to move only when it says so.
+        type: string
+        default: main
+      runs-on:
+        description: Runner, as JSON — a string label or an array of labels.
+        type: string
+        default: '"ubuntu-latest"'
+      timeout-minutes:
+        type: number
+        default: 40
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: smoke (${{ inputs.distro }})
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    container: ros:${{ inputs.distro }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The assertions live in scripts/ros2-smoke-assert.sh so a repo that already
+      # built its workspace in another job can run the same checks from a plain step
+      # instead of paying for a second build. This workflow is one of its two
+      # consumers, not its owner.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: first-motive/.github
+          ref: ${{ inputs.scripts-ref }}
+          path: .fm-ci
+
+      - name: Import + mark externals
+        if: inputs.repos-file != ''
+        env:
+          REPOS_FILE: ${{ inputs.repos-file }}
+          BUILD_EXTERNALS: ${{ inputs.build-externals }}
+        run: |
+          set -euo pipefail
+          apt-get update && apt-get install -y python3-vcstool
+          vcs import < "$REPOS_FILE"
+          # nullglob: a manifest that imports no external/ must not leave the literal
+          # glob behind for touch to choke on under set -e.
+          shopt -s nullglob
+          for d in external/*/; do touch "${d}COLCON_IGNORE"; done
+          for name in $BUILD_EXTERNALS; do
+            rm -f "external/$name/COLCON_IGNORE"
+            if [ -d "external/$name/example/src" ]; then
+              touch "external/$name/example/src/COLCON_IGNORE"
+            fi
+          done
+          echo "externals imported"
+
+      - uses: astral-sh/setup-uv@v7
+        if: inputs.pip-packages != ''
+
+      # colcon resolves neither install_requires nor a lazily imported native wheel,
+      # so a node can build clean and then die on its first import. That failure is
+      # exactly what the state asserts below are meant to surface, not to trip over.
+      - name: Install Python deps
+        if: inputs.pip-packages != ''
+        env:
+          PIP_PACKAGES: ${{ inputs.pip-packages }}
+        run: |
+          set -eo pipefail
+          uv pip install --system $PIP_PACKAGES
+
+      - name: Install ROS deps
+        env:
+          APT_PACKAGES: ${{ inputs.apt-packages }}
+          DISTRO: ${{ inputs.distro }}
+        run: |
+          # No -u: ROS's setup.bash reads unset variables by design.
+          set -eo pipefail
+          source "/opt/ros/$DISTRO/setup.bash"
+          # The base image ships no package lists, so rosdep's apt-get install would
+          # 404 without this update.
+          apt-get update
+          if [ -n "$APT_PACKAGES" ]; then
+            apt-get install -y $APT_PACKAGES
+          fi
+          rosdep update
+          paths="."
+          [ -d external ] && paths="$paths external"
+          if [ "${{ inputs.rosdep-strict }}" = "true" ]; then
+            rosdep install --from-paths $paths --ignore-src -y -r
+          else
+            rosdep install --from-paths $paths --ignore-src -y -r || \
+              echo "rosdep left dependencies unresolved — the build step decides"
+          fi
+
+      - name: colcon build
+        env:
+          DISTRO: ${{ inputs.distro }}
+        run: |
+          set -eo pipefail
+          source "/opt/ros/$DISTRO/setup.bash"
+          colcon build --symlink-install
+
+      - name: Launch + assert state
+        env:
+          DISTRO: ${{ inputs.distro }}
+          LAUNCH: ${{ inputs.launch }}
+          EXPECT_NODES: ${{ inputs.expect-nodes }}
+          EXPECT_TOPICS: ${{ inputs.expect-topics }}
+          EXPECT_CONTROLLERS: ${{ inputs.expect-controllers }}
+          READY_TIMEOUT: ${{ inputs.ready-timeout }}
+          TOPIC_TIMEOUT: ${{ inputs.topic-timeout }}
+        run: |
+          # No -u: ROS's setup.bash reads unset variables by design.
+          set -eo pipefail
+          source "/opt/ros/$DISTRO/setup.bash"
+          source install/setup.bash
+          bash .fm-ci/scripts/ros2-smoke-assert.sh
