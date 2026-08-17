@@ -87,7 +87,16 @@ main() {
       nodes_left="${still# }"
     fi
     if [ -n "$controllers_left" ]; then
-      ctrl_list="$(ros2 control list_controllers 2>/dev/null)"
+      # Strip ANSI colour before matching. list_controllers colours the name and the
+      # state unconditionally — not only on a tty — so the raw line begins with an
+      # escape sequence rather than the controller name, and `^name` never matches:
+      #
+      #   ESC[92mjoint_state_broadcaster ESC[0m …  ESC[92mactiveESC[0m
+      #
+      # Every controller reported `active` and every assert still failed. The ANSI-C
+      # quoted ESC keeps this working under BSD sed as well as GNU.
+      ctrl_list="$(ros2 control list_controllers 2>/dev/null |
+                   sed $'s/\033\\[[0-9;]*m//g')"
       still=""
       for c in $controllers_left; do
         # list_controllers prints `name[type/Class] state`. Anchor on the name
