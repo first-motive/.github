@@ -126,6 +126,22 @@ main() {
     fi
   done
 
+  # Capture the graph before teardown, while it still exists. A failure says which
+  # assertion did not hold; this says what the stack actually looked like, which is
+  # the difference between diagnosing in one run and guessing across several. Taken
+  # only on failure — a green run does not need the noise.
+  if [ "$fails" -ne 0 ]; then
+    { echo "== ros2 node list =="
+      ros2 node list 2>&1
+      if [ -n "$EXPECT_CONTROLLERS" ]; then
+        echo "== ros2 control list_controllers =="
+        ros2 control list_controllers 2>&1
+      fi
+      echo "== ros2 topic list =="
+      ros2 topic list 2>&1
+    } >/tmp/smoke-state.txt
+  fi
+
   # Bounded teardown: a plain `wait` blocks forever when a launch child ignores
   # SIGTERM, which hangs the job until the runner's own timeout.
   kill "$launch_pid" 2>/dev/null || true
@@ -138,6 +154,8 @@ main() {
 
   echo "==> smoke: ${fails} failure(s)"
   if [ "$fails" -ne 0 ]; then
+    echo "==> graph at failure"
+    cat /tmp/smoke-state.txt 2>/dev/null || echo "(not captured)"
     echo "==> launch log (last 60 lines)"
     tail -60 /tmp/smoke.log || true
   fi
