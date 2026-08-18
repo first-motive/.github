@@ -15,6 +15,9 @@ name: Direct-push tripwire
 # somebody clones fresh and never ran an installer, or reaches for
 # FM_ALLOW_MAIN_PUSH=1. One control asks, the other notices.
 #
+# The script needs only curl and python3, so this runs unchanged on a hosted
+# runner and on the self-hosted fleet, whose image ships neither gh nor jq.
+#
 #   jobs:
 #     tripwire:
 #       uses: first-motive/.github/.github/workflows/direct-push-tripwire.yml@main
