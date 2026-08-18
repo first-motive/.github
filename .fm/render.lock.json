@@ -1,0 +1,34 @@
+{
+  "_fm_render": {
+    "artifact": "render-lock",
+    "origin": "rendered by the First Motive render plane \u2014 edit the upstream source, not this file",
+    "sha256": "63c76c9d3b489318751f7dbc147ab38cff2727301f7a08c01dc45ffd3c3a9914"
+  },
+  "artifacts": {
+    "pre-push-hook": {
+      "mode": "file",
+      "paths": [
+        ".fm/hooks/pre-push"
+      ],
+      "sha256": "4c369c9361bb6aca99d7bfb43fa9d2b8345462bcc409c900e6c36d4123d97a94",
+      "stamp": "hash"
+    },
+    "render-check": {
+      "mode": "file",
+      "paths": [
+        ".fm/render-check.py"
+      ],
+      "sha256": "d3b89f3d4b4027bc004832465bd2b0d4f2d59801a29b3624bdf8a0c2bd7e9e47",
+      "stamp": "hash"
+    },
+    "rosdep-update": {
+      "mode": "file",
+      "paths": [
+        "scripts/rosdep-update.sh"
+      ],
+      "sha256": "d86dea806e587927211b96115aa21b6cbef3b0af840b7b1dac8c6b5519c6dec9",
+      "stamp": "hash"
+    }
+  },
+  "source": "first-motive render plane"
+}
