@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# fm-render: rosdep-update sha256:d86dea806e587927211b96115aa21b6cbef3b0af840b7b1dac8c6b5519c6dec9 — rendered by the First Motive render plane — edit the upstream source, not this file
 # `rosdep update`, made survivable.
 #
 #   ./rosdep-update.sh [distro]
@@ -26,6 +27,12 @@
 #
 # Exits non-zero only when every attempt fails, so a genuinely broken rosdep still
 # stops the build.
+#
+# Rendered into every repo that runs `rosdep update`, because the first version of
+# this fix reached the CI workflows and the bootstrap preambles and not the machine
+# layer — which is the one caller that runs unattended, on real hardware, where an
+# abort leaves a rig provisioned halfway. One source, rendered, is what stops the
+# next fix landing in three places out of four.
 set -uo pipefail
 
 DISTRO="${1:-${ROS_DISTRO:-humble}}"
