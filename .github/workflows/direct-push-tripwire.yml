@@ -1,0 +1,78 @@
+name: Direct-push tripwire
+
+# This org has no server-side branch protection: it is a paid feature on private
+# repos, and the plan upgrade is deferred (see docs/adr/0001-branch-protection-deferral.md).
+# Nothing on the server refuses a push straight to the default branch, so the
+# next best thing is that no such push goes unnoticed.
+#
+# On every push to the default branch this asks GitHub which pull requests the
+# pushed commit belongs to. A merge has one, merged. A direct push has none —
+# and gets an issue opened against it naming the commit, its author, and what to
+# do about it.
+#
+# The local pre-push hook (.fm/hooks/pre-push, rendered by the render plane)
+# refuses the push in the first place. This is the half that still works when
+# somebody clones fresh and never ran an installer, or reaches for
+# FM_ALLOW_MAIN_PUSH=1. One control asks, the other notices.
+#
+#   jobs:
+#     tripwire:
+#       uses: first-motive/.github/.github/workflows/direct-push-tripwire.yml@main
+#       permissions:
+#         contents: read
+#         issues: write
+#         pull-requests: read
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: >-
+          Runner, as JSON: a string for a hosted label ('"ubuntu-latest"'), or an
+          array for a self-hosted label set ('["self-hosted","Linux","ARM64","fm-ci"]').
+        type: string
+        default: '"ubuntu-latest"'
+      label:
+        description: Label applied to the issue a direct push opens.
+        type: string
+        default: direct-push
+      scripts-ref:
+        description: >-
+          Ref of first-motive/.github to take scripts/direct-push-tripwire.sh
+          from. Pin it in a repo that wants the tripwire to move only when it says so.
+        type: string
+        default: main
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  tripwire:
+    name: the commit arrived through a pull request
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    # Only pushes to the default branch are graded. A branch push is the flow
+    # working, and a tag push is a release, which fm release gates separately.
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    timeout-minutes: 5
+    steps:
+      # Only the script is needed — the caller's tree is never read, so it is
+      # never checked out. Every fact this job grades comes from the API.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: first-motive/.github
+          ref: ${{ inputs.scripts-ref }}
+          path: .fm-ci
+
+      - name: Check the commit against its pull requests
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.event.pusher.name }}
+          LABEL: ${{ inputs.label }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash .fm-ci/scripts/direct-push-tripwire.sh
