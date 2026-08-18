@@ -167,7 +167,7 @@ jobs:
           if [ -n "$APT_PACKAGES" ]; then
             apt-get install -y $APT_PACKAGES
           fi
-          rosdep update
+          bash .fm-ci/scripts/rosdep-update.sh "$DISTRO"
           paths="."
           [ -d external ] && paths="$paths external"
           if [ "${{ inputs.rosdep-strict }}" = "true" ]; then
