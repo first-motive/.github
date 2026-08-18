@@ -81,6 +81,14 @@ jobs:
         with:
           path: ${{ inputs.checkout-path }}
 
+      # The shared rosdep wrapper. rosdep fetches its sources unauthenticated, so a
+      # busy day rate limits one file and fails the build; the wrapper retries, and
+      # drops the ROS 1 source that does not apply here at all.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: first-motive/.github
+          path: .fm-ci
+
       - name: Import + mark externals
         if: inputs.repos-file != ''
         env:
@@ -118,7 +126,7 @@ jobs:
           if [ -n "$APT_PACKAGES" ]; then
             apt-get update && apt-get install -y $APT_PACKAGES
           fi
-          rosdep update
+          bash .fm-ci/scripts/rosdep-update.sh "$DISTRO"
           paths="${{ inputs.checkout-path }}"
           [ -d external ] && paths="$paths external"
           if [ "${{ inputs.rosdep-strict }}" = "true" ]; then
