@@ -7,6 +7,7 @@ workflows repos call by reference instead of copying.
 ```
 .github/
 ├── profile/README.md           org landing page (github.com/first-motive)
+├── docs/adr/                   decisions worth a record, publicly
 ├── CONTRIBUTING.md             inherited by every repo without its own
 ├── CODE_OF_CONDUCT.md          inherited by every repo without its own
 ├── SECURITY.md                 inherited by every repo without its own
@@ -29,7 +30,9 @@ reference; there is no copy to drift.
 | ------------------------ | -------------------------------------------------------------------- |
 | `bootstrap-selftest.yml` | The curl\|bash front door still resolves, on a bare runner            |
 | `ros2-build-test.yml`    | The colcon workspace imports, builds, and passes its own tests        |
+| `ros2-smoke.yml`         | The stack launches: nodes appear, controllers activate, topics publish |
 | `drift-check.yml`        | No rendered artifact in the repo was edited in place                  |
+| `direct-push-tripwire.yml` | Every commit on the default branch arrived through a merged PR       |
 
 ```yaml
 jobs:
@@ -48,6 +51,13 @@ jobs:
 
   drift:
     uses: first-motive/.github/.github/workflows/drift-check.yml@main
+
+  tripwire:
+    uses: first-motive/.github/.github/workflows/direct-push-tripwire.yml@main
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
 ```
 
 `runs-on` is JSON, so a job can land on the self-hosted fleet:
@@ -56,6 +66,16 @@ jobs:
 Each workflow's inputs are documented in its own header. Read that file before
 adding an input — a repo-specific need usually belongs in the calling repo, not
 in a new knob here.
+
+## Decisions
+
+Decisions that outlive the pull request that made them are recorded as ADRs
+under `docs/adr/`, publicly, so a reader can find out why something is the way
+it is without asking.
+
+| ADR | Decision |
+| --- | --- |
+| [0001](docs/adr/0001-branch-protection-deferral.md) | Branch protection is deferred; four compensating controls stand in for it, with the triggers that reopen the question. |
 
 ## Action Pinning
 
