@@ -1,0 +1,27 @@
+name: CI
+
+# The org repo had no CI of its own. Everything in it is called by other repos —
+# reusable workflows, the scripts they run, the ADR they cite — so a change here
+# reaches every consumer before anyone reviews it. That makes a direct push to
+# this default branch the most expensive one in the org, and it was the only one
+# nothing watched.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # This repo owns the tripwire, and calls it on itself. The called job guards on
+  # push-to-default, so it skips on a pull request.
+  # Job-level permissions replace the workflow-level block for this job alone:
+  # opening the issue needs issues:write, which no other job here is granted.
+  tripwire:
+    uses: first-motive/.github/.github/workflows/direct-push-tripwire.yml@main
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
