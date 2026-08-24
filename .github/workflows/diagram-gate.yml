@@ -1,0 +1,73 @@
+name: Diagram gate
+
+# A pull request that changes the shape of the system and leaves the diagrams
+# untouched is how a picture goes stale, and a stale picture reads as current.
+# This asks the API which files the PR touched, and fails when an architecture
+# file moved without a `.d2` moving with it.
+#
+# The escape is the last checkbox of the rendered pull request template, marked
+# `<!-- diagram-gate -->`: ticking it is the author saying, on the record, that
+# the architecture did not actually change. Docs edits, wording, and dependency
+# bumps in launch files pass that way.
+#
+# The companion check is diagram-render-check.yml, which grades the SVGs against
+# their sources. This one asks whether the source should have changed at all.
+#
+#   jobs:
+#     diagram:
+#       uses: first-motive/.github/.github/workflows/diagram-gate.yml@main
+#       permissions:
+#         contents: read
+#         pull-requests: read
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: >-
+          Runner, as JSON: a string for a hosted label ('"ubuntu-latest"'), or an
+          array for a self-hosted label set ('["self-hosted","Linux","ARM64","fm-ci"]').
+        type: string
+        default: '"ubuntu-latest"'
+      architecture-globs:
+        description: >-
+          Newline-separated fnmatch patterns naming this repo's architecture
+          files. `*` crosses directory separators, so one leading `*` reaches any
+          depth. Empty means the default set: ARCHITECTURE.md, ADRs, launch
+          files, compose files.
+        type: string
+        default: ''
+      scripts-ref:
+        description: >-
+          Ref of first-motive/.github to take scripts/diagram-gate.sh from. Pin
+          it in a repo that wants the gate to move only when it says so.
+        type: string
+        default: main
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  diagram:
+    name: architecture changes carry their diagrams
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 5
+    steps:
+      # Only the script is needed — every fact this job grades comes from the
+      # API, so the caller's tree is never checked out.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: first-motive/.github
+          ref: ${{ inputs.scripts-ref }}
+          path: .fm-ci
+
+      - name: Check the changed files against the diagrams
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          ARCH_GLOBS: ${{ inputs.architecture-globs }}
+        run: bash .fm-ci/scripts/diagram-gate.sh

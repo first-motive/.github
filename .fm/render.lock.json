@@ -2,9 +2,25 @@
   "_fm_render": {
     "artifact": "render-lock",
     "origin": "rendered by the First Motive render plane \u2014 edit the upstream source, not this file",
-    "sha256": "204a83ea660c1b18e6d1cc8b4b856c603bdc9faa9943ed0fdf7d8adec96e6705"
+    "sha256": "90447ef9950bd7456382bbf84c601a786af68c7ba5a311b7fa9844ac6a95eac9"
   },
   "artifacts": {
+    "d2-render": {
+      "mode": "file",
+      "paths": [
+        "profile/diagrams/render.sh"
+      ],
+      "sha256": "b7cce2f4d9b4155c4fa5ca1eeff249eb76b8c4bfde53a652e77e7d25ff9bd9c4",
+      "stamp": "hash"
+    },
+    "d2-styles": {
+      "mode": "file",
+      "paths": [
+        "profile/diagrams/styles.d2"
+      ],
+      "sha256": "f779c99b7e9f1b2480fea5a0ace77949e007f5f01d802b1dbdac8c9764ae14f0",
+      "stamp": "hash"
+    },
     "pre-push-hook": {
       "mode": "file",
       "paths": [
@@ -12,6 +28,14 @@
       ],
       "sha256": "4c369c9361bb6aca99d7bfb43fa9d2b8345462bcc409c900e6c36d4123d97a94",
       "stamp": "hash"
+    },
+    "pull-request-template": {
+      "mode": "block",
+      "paths": [
+        ".github/PULL_REQUEST_TEMPLATE.md"
+      ],
+      "sha256": "77ffa0c7e2a4effbca5ea4af0e436b1f6cdc3cd2235cce096110229e5cda4f3b",
+      "stamp": "html"
     },
     "render-check": {
       "mode": "file",

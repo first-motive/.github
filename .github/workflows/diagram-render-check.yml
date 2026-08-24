@@ -1,0 +1,94 @@
+name: Diagram render check
+
+# Every `.d2` in a First Motive repo has a committed `.svg` beside it, because
+# GitHub renders the SVG and nobody reads the source. That makes the SVG a build
+# output living in git, and a build output in git goes stale silently.
+#
+# This re-renders every diagram with a pinned d2 and fails when a committed SVG
+# no longer matches its source. The renderer itself (docs/diagrams/render.sh) is
+# a render-plane artifact, so every repo runs the same one.
+#
+# The version is pinned because layout — and the version string d2 writes into
+# the SVG — are stable within a d2 release and not across them. Bumping it here
+# means re-rendering every diagram in every repo, deliberately, in one pass.
+#
+# The companion check is diagram-gate.yml, which asks whether a `.d2` should
+# have changed at all. This one grades the pictures against their sources.
+#
+#   jobs:
+#     diagrams:
+#       uses: first-motive/.github/.github/workflows/diagram-render-check.yml@main
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: >-
+          Runner, as JSON: a string for a hosted label ('"ubuntu-latest"'), or an
+          array for a self-hosted label set ('["self-hosted","Linux","ARM64","fm-ci"]').
+        type: string
+        default: '"ubuntu-latest"'
+      d2-version:
+        description: >-
+          d2 release to render with. Pinned org-wide; a repo overrides it only to
+          stage a bump it is about to re-render for.
+        type: string
+        default: v0.7.1
+      render-script:
+        description: Path to the repo's render script, relative to the repo root.
+        type: string
+        default: docs/diagrams/render.sh
+
+permissions:
+  contents: read
+
+jobs:
+  diagrams:
+    name: committed SVGs match their sources
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # A repo with no diagrams is not a failure — it is a repo the palette does
+      # not reach yet. Only a repo holding the rendered script is graded.
+      - name: Look for a render script
+        id: script
+        run: |
+          if [ -x "${{ inputs.render-script }}" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "no ${{ inputs.render-script }} — this repo renders no diagrams"
+          fi
+
+      # The release tarball, not the install script: a pinned URL is the whole
+      # point of pinning the version, and the fleet image ships no package
+      # manager entry for d2.
+      - name: Install d2 ${{ inputs.d2-version }}
+        if: steps.script.outputs.found == 'true'
+        run: |
+          set -euo pipefail
+          version="${{ inputs.d2-version }}"
+          case "$(uname -m)" in
+            x86_64|amd64) arch=amd64 ;;
+            aarch64|arm64) arch=arm64 ;;
+            *) echo "unsupported architecture $(uname -m)" >&2; exit 1 ;;
+          esac
+          case "$(uname -s)" in
+            Linux) os=linux ;;
+            Darwin) os=macos ;;
+            *) echo "unsupported system $(uname -s)" >&2; exit 1 ;;
+          esac
+          curl -fsSL "https://github.com/terrastruct/d2/releases/download/${version}/d2-${version}-${os}-${arch}.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP"
+          # Onto PATH rather than into /usr/local/bin: the fleet runners are not
+          # assumed to have sudo, and the tool is needed for this job only.
+          mkdir -p "$RUNNER_TEMP/bin"
+          install -m 0755 "$RUNNER_TEMP/d2-${version}/bin/d2" "$RUNNER_TEMP/bin/d2"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/bin/d2" --version
+
+      - name: Re-render every diagram and compare
+        if: steps.script.outputs.found == 'true'
+        run: ./${{ inputs.render-script }} --check

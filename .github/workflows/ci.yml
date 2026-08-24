@@ -25,3 +25,8 @@ jobs:
       contents: read
       issues: write
       pull-requests: read
+
+  # Rendered artifacts land here too — the palette, the renderer, the pull
+  # request template — so this repo is graded by the same check it ships.
+  drift:
+    uses: first-motive/.github/.github/workflows/drift-check.yml@main
