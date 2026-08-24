@@ -1,21 +1,21 @@
+# Org-profile map: the data engine as one loop, drawn at repo granularity so a
+# reader lands on something they can open. The node-level view of the same loop
+# is fm-ros2's docs/diagrams/learning.d2 — that one names processes and topics,
+# this one names the repos. Palette and stroke come from the shared styles.d2
+# the render plane keeps in step with every other First Motive diagram.
+...@styles
 direction: right
 
-classes: {
-  repo: { style.fill: "#B6A5C6"; style.font-color: "#342E3B"; style.stroke: "#3B3443"; style.stroke-width: 2 }
-  stage: { style.fill: "#E7DDC8"; style.font-color: "#342E3B"; style.stroke: "#3B3443"; style.stroke-width: 2 }
-  edge: { style.stroke: "#3B3443"; style.stroke-width: 2 }
-}
+robot: "fm-robot · real robot" { class: pkg }
+sim: "fm-sim · simulation" { class: pkg }
+teleop: "fm-teleop · teleop + autonomy" { class: pkg }
+record: "episode recording" { class: art }
+pipeline: "data pipeline" { class: art }
+train: "train + serve" { class: art }
 
-robot: "fm-robot · real robot" { class: repo }
-sim: "fm-sim · simulation" { class: repo }
-teleop: "fm-teleop · teleop + autonomy" { class: repo }
-record: "episode recording" { class: stage }
-pipeline: "data pipeline" { class: stage }
-train: "train + serve" { class: stage }
-
-robot -> teleop: { class: edge }
-sim -> teleop: { class: edge }
-teleop -> record: { class: edge }
-record -> pipeline: { class: edge }
-pipeline -> train: { class: edge }
-train -> robot: deploy { class: edge }
+robot -> teleop
+sim -> teleop
+teleop -> record
+record -> pipeline
+pipeline -> train
+train -> robot: deploy

@@ -33,6 +33,8 @@ reference; there is no copy to drift.
 | `ros2-smoke.yml`         | The stack launches: nodes appear, controllers activate, topics publish |
 | `drift-check.yml`        | No rendered artifact in the repo was edited in place                  |
 | `direct-push-tripwire.yml` | Every commit on the default branch arrived through a merged PR       |
+| `diagram-gate.yml`       | An architecture change carries a `.d2` change, or a waived checkbox   |
+| `diagram-render-check.yml` | Every committed `.svg` still matches the `.d2` it was rendered from |
 
 ```yaml
 jobs:
@@ -58,7 +60,21 @@ jobs:
       contents: read
       issues: write
       pull-requests: read
+
+  diagram:
+    uses: first-motive/.github/.github/workflows/diagram-gate.yml@main
+    permissions:
+      contents: read
+      pull-requests: read
+
+  diagrams:
+    uses: first-motive/.github/.github/workflows/diagram-render-check.yml@main
 ```
+
+The two diagram jobs are a pair and answer different questions. `diagram-gate`
+asks whether a `.d2` should have changed at all; `diagram-render-check` asks
+whether the committed SVGs still match the sources they came from. A repo with
+diagrams wants both; a repo with none passes both without doing any work.
 
 `runs-on` is JSON, so a job can land on the self-hosted fleet:
 `runs-on: '["self-hosted","Linux","ARM64","fm-ci"]'`.

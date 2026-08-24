@@ -16,10 +16,10 @@ policies back to the robot. Each layer is its own repository, assembled into one
 ROS2 workspace.
 
 <p align="center">
-  <img src="assets/architecture.svg" alt="Data-engine loop: robot and sim feed teleop, episodes are recorded, the data pipeline trains policies, policies deploy back to the robot" width="900">
+  <img src="diagrams/architecture.svg" alt="Data-engine loop: robot and sim feed teleop, episodes are recorded, the data pipeline trains policies, policies deploy back to the robot" width="900">
 </p>
 
-<sub>Diagram source: [`diagrams/architecture.d2`](diagrams/architecture.d2) — re-render with [`diagrams/render.sh`](diagrams/render.sh).</sub>
+<sub>Diagram source: [`diagrams/architecture.d2`](diagrams/architecture.d2) — re-render with [`diagrams/render.sh`](diagrams/render.sh), which the render plane keeps in step with every other repo's.</sub>
 
 `fm-app` orchestrates bringup across these layers; `fm-ros2` is the workspace
 that assembles them all.
