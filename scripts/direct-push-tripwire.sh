@@ -31,9 +31,11 @@ API="${GITHUB_API_URL:-https://api.github.com}"
 short="${SHA:0:12}"
 
 # GET one API path. Fails loudly: a tripwire that cannot read must not read as
-# "nothing to report".
+# "nothing to report". Reads are idempotent, so a transient network error is
+# retried: the self-hosted guests see the odd connection reset on the way to
+# api.github.com, and one reset must not grade a real merge as a red check.
 api_get() {
-  curl -fsSL \
+  curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors \
     -H "Authorization: Bearer $GH_TOKEN" \
     -H "Accept: application/vnd.github+json" \
     -H "X-GitHub-Api-Version: 2022-11-28" \
