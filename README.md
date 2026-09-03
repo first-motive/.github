@@ -92,6 +92,7 @@ it is without asking.
 | ADR | Decision |
 | --- | --- |
 | [0001](docs/adr/0001-branch-protection-deferral.md) | Branch protection is deferred; four compensating controls stand in for it, with the triggers that reopen the question. |
+| [0002](docs/adr/0002-agents-merge-own-pull-requests.md) | Coding agents merge their own pull requests; admin bypass is allowed past a review rule, never past a check. |
 
 ## Action Pinning
 
