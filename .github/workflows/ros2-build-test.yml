@@ -123,8 +123,11 @@ jobs:
           # aborts the step on AMENT_TRACE_SETUP_FILES before anything runs.
           set -eo pipefail
           source "/opt/ros/$DISTRO/setup.bash"
+          # The ros image ships with no apt index, and rosdep installs through apt, so
+          # refresh it whether or not the caller asked for extra packages.
+          apt-get update
           if [ -n "$APT_PACKAGES" ]; then
-            apt-get update && apt-get install -y $APT_PACKAGES
+            apt-get install -y $APT_PACKAGES
           fi
           bash .fm-ci/scripts/rosdep-update.sh "$DISTRO"
           paths="${{ inputs.checkout-path }}"
