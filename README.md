@@ -50,6 +50,9 @@ jobs:
       repos-file: fm-robot.repos
       build-externals: openarm_description unitree_ros2
       apt-packages: ros-humble-rosidl-generator-dds-idl ros-humble-cyclonedds
+      # Optional: on a pull request, build and test only the changed packages and
+      # their dependents. A change outside every package builds everything.
+      changed-only: true
 
   drift:
     uses: first-motive/.github/.github/workflows/drift-check.yml@main
