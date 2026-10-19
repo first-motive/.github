@@ -30,3 +30,14 @@ jobs:
   # request template — so this repo is graded by the same check it ships.
   drift:
     uses: first-motive/.github/.github/workflows/drift-check.yml@main
+
+  # The changed-only selection decides which packages a pull request skips, and
+  # a wrong answer skips a build silently instead of failing one. Its fixtures
+  # run here, against this repo's own copy of the script.
+  changed-packages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: changed-packages fixtures
+        run: bash scripts/test-changed-packages.sh

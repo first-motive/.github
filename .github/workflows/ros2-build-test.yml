@@ -12,6 +12,10 @@ name: ROS2 build + test
 #         repos-file: fm-robot.repos
 #         build-externals: openarm_description unitree_ros2
 #         apt-packages: ros-humble-rosidl-generator-dds-idl ros-humble-cyclonedds
+#         changed-only: true
+#
+# changed-only relies on the pull_request event's default checkout: the merge
+# commit, whose first parent (HEAD^1) is the base the pull request merges into.
 
 on:
   workflow_call:
@@ -47,6 +51,13 @@ on:
         description: Run colcon test after the build.
         type: boolean
         default: true
+      changed-only:
+        description: >-
+          On a pull request, build and test only the packages the change touches,
+          plus their dependents. A change outside every package builds everything,
+          as does any event that is not a pull request.
+        type: boolean
+        default: false
       rosdep-strict:
         description: >-
           Fail the job when rosdep cannot resolve a dependency. Set false in a repo
@@ -77,9 +88,12 @@ jobs:
       run:
         shell: bash
     steps:
+      # A pull request checks out its merge commit. Depth 2 brings that commit's
+      # first parent, the base it merges into, so changed-only can diff the two.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: ${{ inputs.checkout-path }}
+          fetch-depth: ${{ inputs.changed-only && 2 || 1 }}
 
       # The shared rosdep wrapper. rosdep fetches its sources unauthenticated, so a
       # busy day rate limits one file and fails the build; the wrapper retries, and
@@ -139,23 +153,51 @@ jobs:
               echo "rosdep left dependencies unresolved — the build step decides"
           fi
 
-      - name: colcon build
+      # A file no package holds — a .repos manifest, a workflow — can reach any
+      # package, so the script returns nothing and the build falls back to
+      # everything. The selection lives in scripts/ so its fixtures can test it.
+      - name: Select changed packages
+        id: select
+        if: inputs.changed-only && github.event_name == 'pull_request'
         env:
           DISTRO: ${{ inputs.distro }}
+          CHECKOUT_PATH: ${{ inputs.checkout-path }}
         run: |
           # No -u: ROS's setup.bash reads unset variables by design, so `set -u`
           # aborts the step on AMENT_TRACE_SETUP_FILES before anything runs.
           set -eo pipefail
           source "/opt/ros/$DISTRO/setup.bash"
-          colcon build --symlink-install
+          script="$PWD/.fm-ci/scripts/changed-packages.sh"
+          cd "$CHECKOUT_PATH"
+          list="$(colcon --log-base /dev/null list --base-paths .)"
+          changed="$(PACKAGE_LIST="$list" bash "$script")"
+          if [ -n "$changed" ]; then
+            echo "changed-only: $(wc -w <<<"$changed") package(s) selected: $changed"
+          else
+            echo "changed-only: no package selected, building everything"
+          fi
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+
+      - name: colcon build
+        env:
+          DISTRO: ${{ inputs.distro }}
+          CHANGED: ${{ steps.select.outputs.changed }}
+        run: |
+          # No -u: ROS's setup.bash reads unset variables by design, so `set -u`
+          # aborts the step on AMENT_TRACE_SETUP_FILES before anything runs.
+          set -eo pipefail
+          source "/opt/ros/$DISTRO/setup.bash"
+          colcon build --symlink-install ${CHANGED:+--packages-above-and-dependencies $CHANGED}
 
       # colcon test exits 0 even when a test fails, so test-result is what turns a
-      # failure into a red job.
+      # failure into a red job. colcon intersects selection flags, so changed-only
+      # narrows the prefix filter to the changed packages and their dependents.
       - name: colcon test
         if: inputs.test
         env:
           DISTRO: ${{ inputs.distro }}
           PREFIX: ${{ inputs.package-prefix }}
+          CHANGED: ${{ steps.select.outputs.changed }}
         run: |
           # No -u: ROS's setup.bash reads unset variables by design, so `set -u`
           # aborts the step on AMENT_TRACE_SETUP_FILES before anything runs.
@@ -165,8 +207,8 @@ jobs:
           if [ -n "$PREFIX" ]; then
             packages="$(colcon list --names-only | grep "^$PREFIX" || true)"
             [ -n "$packages" ] || { echo "FAIL: no package matches prefix '$PREFIX'"; exit 1; }
-            colcon test --packages-select $packages
+            colcon test --packages-select $packages ${CHANGED:+--packages-above $CHANGED}
           else
-            colcon test
+            colcon test ${CHANGED:+--packages-above $CHANGED}
           fi
           colcon test-result --verbose
