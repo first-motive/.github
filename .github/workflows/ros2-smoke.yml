@@ -101,7 +101,9 @@ jobs:
     name: smoke (${{ inputs.distro }})
     runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
-    container: ros:${{ inputs.distro }}
+    # Docker Hub's official ros image through ECR Public's mirror: CodeBuild runners
+    # share egress IPs, which exhausts Docker Hub's anonymous pull limit.
+    container: public.ecr.aws/docker/library/ros:${{ inputs.distro }}
     defaults:
       run:
         shell: bash
