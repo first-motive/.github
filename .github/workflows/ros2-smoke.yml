@@ -85,6 +85,12 @@ on:
           Pin it in a repo that wants the assertions to move only when it says so.
         type: string
         default: main
+      image:
+        description: >-
+          Container image the job runs in. Empty means ECR Public's mirror of
+          ros:<distro>; ros2-build-test.yml and the README say when to override it.
+        type: string
+        default: ""
       runs-on:
         description: Runner, as JSON — a string label or an array of labels.
         type: string
@@ -101,9 +107,10 @@ jobs:
     name: smoke (${{ inputs.distro }})
     runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
-    # Docker Hub's official ros image through ECR Public's mirror: CodeBuild runners
-    # share egress IPs, which exhausts Docker Hub's anonymous pull limit.
-    container: public.ecr.aws/docker/library/ros:${{ inputs.distro }}
+    # By default Docker Hub's official ros image through ECR Public's mirror:
+    # CodeBuild runners share egress IPs, which exhausts Docker Hub's anonymous
+    # pull limit. The image input overrides it (see its description).
+    container: ${{ inputs.image || format('public.ecr.aws/docker/library/ros:{0}', inputs.distro) }}
     defaults:
       run:
         shell: bash
