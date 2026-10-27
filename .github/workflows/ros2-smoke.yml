@@ -85,6 +85,15 @@ on:
           Pin it in a repo that wants the assertions to move only when it says so.
         type: string
         default: main
+      image:
+        description: >-
+          Container image the job runs in. Empty means the official ros image for
+          the distro through ECR Public's mirror, which suits CodeBuild. ECR Public
+          caps anonymous data per source address, and GitHub-hosted runners share
+          theirs, so a public repo on hosted runners passes Docker Hub's
+          ros:<distro> instead.
+        type: string
+        default: ""
       runs-on:
         description: Runner, as JSON — a string label or an array of labels.
         type: string
@@ -101,9 +110,10 @@ jobs:
     name: smoke (${{ inputs.distro }})
     runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
-    # Docker Hub's official ros image through ECR Public's mirror: CodeBuild runners
-    # share egress IPs, which exhausts Docker Hub's anonymous pull limit.
-    container: public.ecr.aws/docker/library/ros:${{ inputs.distro }}
+    # By default Docker Hub's official ros image through ECR Public's mirror:
+    # CodeBuild runners share egress IPs, which exhausts Docker Hub's anonymous
+    # pull limit. The image input overrides it (see its description).
+    container: ${{ inputs.image || format('public.ecr.aws/docker/library/ros:{0}', inputs.distro) }}
     defaults:
       run:
         shell: bash

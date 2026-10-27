@@ -53,6 +53,10 @@ jobs:
       # Optional: on a pull request, build and test only the changed packages and
       # their dependents. A change outside every package builds everything.
       changed-only: true
+      # Optional: the container image. Empty uses ECR Public's mirror of the ros
+      # image, which suits CodeBuild; a public repo on GitHub-hosted runners
+      # passes ros:<distro>, since ECR Public caps anonymous data per address.
+      # image: ros:jazzy
 
   drift:
     uses: first-motive/.github/.github/workflows/drift-check.yml@main
