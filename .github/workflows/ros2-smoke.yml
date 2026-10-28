@@ -87,8 +87,9 @@ on:
         default: main
       image:
         description: >-
-          Container image the job runs in. Empty means ECR Public's mirror of
-          ros:<distro>; ros2-build-test.yml and the README say when to override it.
+          Container image the job runs in. Empty means fm-docker's public base
+          image for the distro, ghcr.io/first-motive/fm-docker:<distro>, which
+          fm-docker publishes for humble and jazzy. Another distro passes its own.
         type: string
         default: ""
       runs-on:
@@ -107,10 +108,13 @@ jobs:
     name: smoke (${{ inputs.distro }})
     runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
-    # By default Docker Hub's official ros image through ECR Public's mirror:
-    # CodeBuild runners share egress IPs, which exhausts Docker Hub's anonymous
-    # pull limit. The image input overrides it (see its description).
-    container: ${{ inputs.image || format('public.ecr.aws/docker/library/ros:{0}', inputs.distro) }}
+    # By default fm-docker's base image on GHCR: ros:<distro>-ros-base plus the
+    # colcon, vcstool and rosdep tooling. Docker Hub and ECR Public both cap
+    # anonymous pulls per source address, which shared GitHub-hosted and
+    # CodeBuild egress addresses exhaust. The image input overrides it.
+    # tradeoff: fm-docker publishes humble and jazzy only; another distro must
+    # pass image, or the pull fails with the registry's not-found error.
+    container: ${{ inputs.image || format('ghcr.io/first-motive/fm-docker:{0}', inputs.distro) }}
     defaults:
       run:
         shell: bash
