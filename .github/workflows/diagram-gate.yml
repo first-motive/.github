@@ -3,7 +3,7 @@ name: Diagram gate
 # A pull request that changes the shape of the system and leaves the diagrams
 # untouched is how a picture goes stale, and a stale picture reads as current.
 # This asks the API which files the PR touched, and fails when an architecture
-# file moved without a `.d2` moving with it.
+# file moved without a diagram source (`.d2` or `.tldr`) moving with it.
 #
 # The escape is the last checkbox of the rendered pull request template, marked
 # `<!-- diagram-gate -->`: ticking it is the author saying, on the record, that

@@ -41,3 +41,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: changed-packages fixtures
         run: bash scripts/test-changed-packages.sh
+
+  # The diagram gate fails pull requests across the org, so a wrong answer
+  # blocks merges or lets a stale diagram through. Its fixtures run here,
+  # against this repo's own copy of the script.
+  diagram-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: diagram-gate fixtures
+        run: bash scripts/test-diagram-gate.sh
