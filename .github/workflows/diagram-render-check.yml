@@ -4,16 +4,21 @@ name: Diagram render check
 # GitHub renders the SVG and nobody reads the source. That makes the SVG a build
 # output living in git, and a build output in git goes stale silently.
 #
-# This re-renders every diagram with a pinned d2 and fails when a committed SVG
-# no longer matches its source. The renderer itself (docs/diagrams/render.sh) is
-# a render-plane artifact, so every repo runs the same one.
+# This runs `render.sh --check`, which fails when a committed SVG no longer
+# matches its source. A d2 SVG is re-rendered with a pinned d2 and compared byte
+# for byte. A tldraw SVG is not re-rendered: its first line carries the stamp
+# `<!-- fm-tldraw sha256:<hash of .tldr> -->`, and the check compares that hash
+# with the `.tldr` beside it, so it needs no Node. The renderer itself
+# (docs/diagrams/render.sh) is a render-plane artifact, so every repo runs the
+# same one.
 #
 # The version is pinned because layout — and the version string d2 writes into
 # the SVG — are stable within a d2 release and not across them. Bumping it here
 # means re-rendering every diagram in every repo, deliberately, in one pass.
 #
-# The companion check is diagram-gate.yml, which asks whether a `.d2` should
-# have changed at all. This one grades the pictures against their sources.
+# The companion check is diagram-gate.yml, which asks whether a `.d2` or
+# `.tldr` should have changed at all. This one grades the pictures against
+# their sources.
 #
 #   jobs:
 #     diagrams:

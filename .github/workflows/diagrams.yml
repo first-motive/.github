@@ -14,8 +14,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Did a `.d2` need to change? Fails an architecture change with no diagram
-  # behind it, unless the author ticks the waiver in the pull request template.
+  # Did a `.d2` or `.tldr` need to change? Fails an architecture change with no
+  # diagram behind it, unless the author ticks the waiver in the pull request
+  # template.
   gate:
     uses: first-motive/.github/.github/workflows/diagram-gate.yml@main
     permissions:

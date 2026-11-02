@@ -13,9 +13,10 @@
 #   ARCH_GLOBS  newline-separated fnmatch patterns naming architecture files
 #
 # The test: this PR touched a file that describes the system's shape, and no
-# `.d2` moved with it. A diagram that stops matching the system is worse than no
-# diagram — it reads as current — and the moment it goes stale is the moment
-# nobody is looking. So the check is here, not in a reviewer's memory.
+# diagram source (`.d2` or `.tldr`) moved with it. A diagram that stops
+# matching the system is worse than no diagram — it reads as current — and the
+# moment it goes stale is the moment nobody is looking. So the check is here,
+# not in a reviewer's memory.
 #
 # The escape is the last checkbox of the rendered pull request template, marked
 # `<!-- diagram-gate -->`. Ticking it is the author saying the shape did not
@@ -68,7 +69,7 @@ files = [line.strip() for line in os.environ["FILES"].splitlines() if line.strip
 body = os.environ.get("PR_BODY") or ""
 
 architecture = sorted({f for f in files for g in globs if fnmatch.fnmatch(f, g)})
-diagrams = sorted(f for f in files if f.endswith(".d2"))
+diagrams = sorted(f for f in files if f.endswith((".d2", ".tldr")))
 
 if not architecture:
     print("ok: no architecture file changed")
@@ -93,7 +94,7 @@ if waived:
     sys.exit(0)
 
 print(
-    "\nno .d2 source changed, and the diagram checkbox in the pull request body"
+    "\nno .d2 or .tldr source changed, and the diagram checkbox in the pull request body"
     "\nis not ticked.\n"
     "\nEither update the diagram that covers this change and re-render it:\n"
     "\n    ./docs/diagrams/render.sh\n"
